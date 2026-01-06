@@ -5,7 +5,7 @@ import PyPDF2  # 新增：用于解析 PDF
 
 # --- 配置区 ---
 st.set_page_config(page_title="降维打击：本质萃取器", layout="wide")
-API_KEY = "sk-efeb3a88f8ed4fda82d849cd9a856f7d" 
+API_KEY = st.secrets["API_KEY"]
 client = OpenAI(api_key=API_KEY, base_url="https://api.deepseek.com")
 
 SYSTEM_PROMPT = """你是一个“降维打击”专家。任务是将复杂文本转化为：
