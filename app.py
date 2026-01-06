@@ -6,107 +6,121 @@ import PyPDF2
 # --- 配置区 ---
 st.set_page_config(page_title="学术降维打击器", layout="wide", page_icon="🧠")
 
-# ⚠️ 安全警告：在本地测试时，把你的真实Key填在这里。
-# 上传到GitHub前，请务必改成 st.secrets["API_KEY"]，并在Streamlit Cloud设置Secrets。
-# API_KEY = st.secrets["API_KEY"]
-API_KEY = st.secrets["API_KEY"]  
+# API 安全设置
+# 上传到 GitHub 前请确保 Secrets 里有 API_KEY 
+try:
+    API_KEY = st.secrets["API_KEY"]
+except:
+    API_KEY = "你的_DEEPSEEK_API_KEY" # 本地测试用
+
 client = OpenAI(api_key=API_KEY, base_url="https://api.deepseek.com")
 
 # --- 核心提示词 ---
 SYSTEM_PROMPT = """你是一个“降维打击”专家。任务是将复杂学术文本转化为：
 1. 本质总结：用极简、幽默的大学生口语概括 3 个核心本质。
-2. Mermaid 思维导图：输出一个清晰的 mindmap 语法代码块，确保节点简洁。
-严禁复读原文术语，必须直击底层逻辑。"""
+2. Mermaid 思维导图：输出一个清晰的 mindmap 语法代码块。
+要求：严禁复读原文，必须把学术黑话转化为直击底层的逻辑。"""
 
-# --- 🔥 邀请码设置 (这里设置你的密码) 🔥 ---
-# 你可以随时在这里修改密码，比如每天换一个
+# --- 邀请码设置 ---
 VALID_CODE = "SKKU2026"
 
 # --- 主界面 ---
-st.title("🧠 学术降维打击器 (内测版)")
-st.caption("🚫 拒绝无效熬夜 | 把天书变成人话和导图")
+st.title("🧠 学术降维打击器 (Winter Session 内测版)")
+st.caption("🚀 专门暴力拆解不说人话的 PDF 讲义 | 目前仅限假期课核心成员使用")
 
-# 侧边栏
+# 侧边栏：注意事项
 with st.sidebar:
-    st.write("## 💡 关于")
-    st.info("这是一个专为被学术文献折磨的留学生开发的 AI 工具。")
-    st.write("目前处于内测阶段，需要邀请码才能使用。")
+    st.header("📋 内测协议 (必读)")
+    st.warning("""
+    **有效反馈要求：**
+    1. **拒绝赞美**：不要说“好用”，请说“哪里总结得不够深”。
+    2. **纠正逻辑**：如果导图的分支层级错了，请截图告知。
+    3. **术语挑刺**：如果 AI 对韩文/英文术语的转换不专业，请直接指出。
+    
+    *你的反馈质量决定了下个版本的迭代方向。*
+    """)
 
-# 文件上传
-uploaded_file = st.file_uploader("📄 拖入你的 PDF 文件 (支持韩/英/中)", type="pdf")
-user_input = st.text_area("或者直接粘贴文本内容", height=150)
+# 1. 身份验证
+st.write("### 🔐 权限开启")
+invite_code = st.text_input("请输入邀请码以解锁降维打击能力", type="password")
 
-# 提取文本
+if not invite_code:
+    st.info("💡 请向开发者申请内测邀请码，并承诺提供有效反馈。")
+    st.stop()
+
+if invite_code != VALID_CODE:
+    st.error("🚫 验证失败：邀请码无效或已过期。")
+    st.stop()
+
+# 验证通过后显示功能区
+st.success("🔓 身份验证成功。请遵守内测协议，提供高质量逻辑反馈。")
+
+st.markdown("---")
+
+# 2. 核心功能区
+col_input, col_info = st.columns([2, 1])
+
+with col_input:
+    uploaded_file = st.file_uploader("📄 上传你的学术 PDF (支持多语言)", type="pdf")
+    user_input = st.text_area("或者直接粘贴天体文本", height=100, placeholder="在此粘贴那些让你头大的文字...")
+
+with col_info:
+    st.write("### 🛠️ 正在解决的痛点：")
+    st.markdown("""
+    - **查词地狱**：不再需要盯着翻译器看半天。
+    - **逻辑断层**：一眼看穿教授的思维骨架。
+    - **期末焦虑**：把 50 页降维成 1 张图。
+    """)
+
+# 提取文本逻辑
 extracted_text = ""
-if uploaded_file is not None:
-    try:
-        pdf_reader = PyPDF2.PdfReader(uploaded_file)
-        for page in pdf_reader.pages:
-            extracted_text += page.extract_text() or ""
-        st.success(f"✅ 成功提取 {len(pdf_reader.pages)} 页内容！")
-    except Exception as e:
-        st.error(f"PDF 解析失败: {e}")
+if uploaded_file:
+    pdf_reader = PyPDF2.PdfReader(uploaded_file)
+    for page in pdf_reader.pages:
+        extracted_text += page.extract_text() or ""
 else:
     extracted_text = user_input
 
-st.markdown("---")
-st.write("### 🔐 身份验证")
-
-# --- 🔥 核心修改：增加邀请码输入框 🔥 ---
-invite_code = st.text_input("请输入内测邀请码 (必填)", type="password", placeholder="找开发者获取...")
-
-# 执行按钮
-if st.button("🚀 开始降维打击", type="primary", use_container_width=True):
-    # --- 🔥 核心修改：检查邀请码 🔥 ---
-    if invite_code != VALID_CODE:
-        st.error("🚫 邀请码错误或已失效！请联系开发者获取最新内测码。")
-        st.stop()  # 停止往下执行，保护 API
-
+# 3. 执行降维打击
+if st.button("🔥 开始降维打击 (消耗 API 额度)", type="primary", use_container_width=True):
     if not extracted_text.strip():
-        st.warning("请先上传 PDF 或输入文字内容！")
+        st.warning("内容为空，你想打击空气吗？")
     else:
-        with st.spinner("🧠 AI 大脑正在疯狂运转，正在暴力拆解知识点... (约需 10-20 秒)"):
+        with st.spinner("AI 正在暴力拆解知识骨架..."):
             try:
+                # 调用 DeepSeek API
                 response = client.chat.completions.create(
                     model="deepseek-chat",
                     messages=[
                         {"role": "system", "content": SYSTEM_PROMPT},
-                        # 截取前 1.2 万字，防止超长 PDF 爆 Token
                         {"role": "user", "content": extracted_text[:12000]}
-                    ],
-                    temperature=0.4  #稍微降低温度，让总结更准确
+                    ]
                 )
-                content = response.choices[0].message.content
+                res_content = response.choices[0].message.content
                 
-                # 分隔总结和导图
-                parts = content.split("## Part 2: 逻辑地图")
+                # 渲染结果
+                st.markdown("---")
+                c1, c2 = st.columns([1, 1])
                 
-                col1, col2 = st.columns([2, 3]) # 左侧总结占2份，右侧导图占3份
-
-                with col1:
-                    st.subheader("📝 本质总结 (人话版)")
-                    st.markdown(parts[0].replace("## Part 1: 本质总结（人话版）", "").strip())
-
-                with col2:
-                    st.subheader("🗺️ 逻辑思维导图")
-                    if len(parts) > 1:
-                        mermaid_code = parts[1].replace("```mermaid", "").replace("```", "").strip()
-                        # 优化导图显示样式，增加边框和背景
+                with c1:
+                    st.subheader("📝 本质总结")
+                    st.write(res_content.split("```")[0]) # 粗略截取非代码部分
+                
+                with c2:
+                    st.subheader("🗺️ 逻辑地图")
+                    if "```mermaid" in res_content:
+                        m_code = res_content.split("```mermaid")[1].split("```")[0].strip()
                         components.html(
                             f"""
-                            <div class="mermaid" style="background-color: #f8f9fa; padding: 20px; border-radius: 10px; border: 1px solid #e9ecef;">
-                            {mermaid_code}
-                            </div>
+                            <pre class="mermaid" style="background:#f9f9f9; padding:10px; border-radius:5px;">
+                            {m_code}
+                            </pre>
                             <script type="module">
                                 import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
-                                mermaid.initialize({{ startOnLoad: true, theme: 'base', securityLevel: 'loose' }});
+                                mermaid.initialize({{ startOnLoad: true, theme: 'neutral' }});
                             </script>
                             """,
-                            height=600,
-                            scrolling=True
+                            height=500, scrolling=True
                         )
-                    else:
-                        st.info("AI 居然没生成导图，可能是内容太少，再试一次？")
-
             except Exception as e:
-                st.error(f"发生错误，请检查网络或联系开发者：{e}")
+                st.error(f"大脑离线中: {e}")
